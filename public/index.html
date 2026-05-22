@@ -6,25 +6,15 @@
     <title>AI Lead Dashboard</title>
     <style>
         body {
-            margin: 0;
-            background: #111827;
-            color: white;
-            font-family: Arial, sans-serif;
-            padding: 40px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            min-height: 100vh;
-            box-sizing: border-box;
+            margin: 0; background: #111827; color: white;
+            font-family: Arial, sans-serif; padding: 40px;
+            display: flex; flex-direction: column; align-items: center;
+            min-height: 100vh; box-sizing: border-box;
         }
         .container {
-            width: 100%;
-            max-width: 500px;
-            background: #1f2937;
-            padding: 30px;
-            border-radius: 16px;
-            box-shadow: 0 0 30px rgba(0,0,0,0.3);
-            margin-bottom: 40px;
+            width: 100%; max-width: 500px; background: #1f2937;
+            padding: 30px; border-radius: 16px;
+            box-shadow: 0 0 30px rgba(0,0,0,0.3); margin-bottom: 40px;
         }
         h2, h3 { margin-top: 0; }
         .input-group { margin-bottom: 15px; }
@@ -39,6 +29,7 @@
             cursor: pointer; font-weight: bold;
         }
         button:hover { background: #1d4ed8; }
+        button:disabled { background: #4b5563; cursor: not-allowed; }
         .dashboard {
             width: 100%; max-width: 900px; background: #1f2937;
             padding: 25px; border-radius: 16px; box-shadow: 0 0 30px rgba(0,0,0,0.3);
@@ -46,9 +37,7 @@
         table { width: 100%; border-collapse: collapse; margin-top: 15px; }
         th, td { padding: 12px; text-align: left; border-bottom: 1px solid #374151; }
         th { background: #374151; }
-        .badge {
-            padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold;
-        }
+        .badge { padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; }
         .Hot-Lead { background: #ef4444; color: white; }
         .Warm-Lead { background: #f59e0b; color: white; }
         .Cold-Lead { background: #6b7280; color: white; }
@@ -75,7 +64,7 @@
             <label>Service Needed</label>
             <textarea id="service" rows="3" required></textarea>
         </div>
-        <button type="submit">Analyze Lead</button>
+        <button type="submit" id="submitBtn">Analyze Lead</button>
     </form>
 </div>
 
@@ -91,35 +80,41 @@
                 <th>Summary</th>
             </tr>
         </thead>
-        <tbody id="leadTableBody">
-            <!-- Saved leads will appear here automatically -->
-        </tbody>
+        <tbody id="leadTableBody"></tbody>
     </table>
 </div>
 
 <script>
-    // Load existing leads when page opens
     async function loadLeads() {
-        const response = await fetch('/api/leads');
-        const leads = await response.json();
-        const tbody = document.getElementById('leadTableBody');
-        tbody.innerHTML = '';
-        
-        leads.forEach(lead => {
-            const row = `<tr>
-                <td><b>${lead.name}</b><br><small>${lead.phone}</small></td>
-                <td>${lead.service}</td>
-                <td>${lead.leadScore}/100</td>
-                <td><span class="badge ${lead.type.replace(' ', '-')}">${lead.type}</span></td>
-                <td>${lead.summary}</td>
-            </tr>`;
-            tbody.insertAdjacentHTML('beforeend', row);
-        });
+        try {
+            const response = await fetch('/api/leads');
+            const leads = await response.json();
+            const tbody = document.getElementById('leadTableBody');
+            tbody.innerHTML = '';
+            
+            if (!Array.isArray(leads)) return;
+
+            leads.forEach(lead => {
+                const cleanType = lead.type ? lead.type.replace(' ', '-') : 'Cold-Lead';
+                const row = `<tr>
+                    <td><b>${lead.name || ''}</b><br><small>${lead.phone || ''}</small></td>
+                    <td>${lead.service || ''}</td>
+                    <td>${lead.leadScore || 0}/100</td>
+                    <td><span class="badge ${cleanType}">${lead.type || 'Cold Lead'}</span></td>
+                    <td>${lead.summary || ''}</td>
+                </tr>`;
+                tbody.insertAdjacentHTML('beforeend', row);
+            });
+        } catch (err) {
+            console.error("Error loading leads:", err);
+        }
     }
 
-    // Handle Form Submit
     document.getElementById('leadForm').addEventListener('submit', async (e) => {
         e.preventDefault();
+        const btn = document.getElementById('submitBtn');
+        btn.textContent = 'Analyzing with AI... Please Wait';
+        btn.disabled = true;
         
         const data = {
             name: document.getElementById('name').value,
@@ -128,14 +123,25 @@
             service: document.getElementById('service').value
         };
 
-        await fetch('/api/analyze-lead', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data)
-        });
-
-        document.getElementById('leadForm').reset();
-        loadLeads(); // Refresh dashboard list instantly
+        try {
+            const res = await fetch('/api/analyze-lead', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            
+            if (res.ok) {
+                document.getElementById('leadForm').reset();
+                await loadLeads();
+            } else {
+                alert("Server error processing lead.");
+            }
+        } catch (err) {
+            alert("Network error. Check connection.");
+        } finally {
+            btn.textContent = 'Analyze Lead';
+            btn.disabled = false;
+        }
     });
 
     loadLeads();

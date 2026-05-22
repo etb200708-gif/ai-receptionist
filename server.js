@@ -2,16 +2,18 @@ const express = require('express');
 const dotenv = require('dotenv');
 const { OpenAI } = require('openai');
 const Datastore = require('nedb-promises');
+const twilio = require('twilio');
 
 dotenv.config();
 const app = express();
 app.use(express.json());
 app.use(express.static('public'));
 
-// 1. Connect to OpenAI
+// 1. Connect to Third-Party Services
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
 
-// 2. Setup Your Free Cloud-Friendly Database
+// 2. Setup Database
 const db = Datastore.create({ filename: './leads.db', autoload: true });
 
 // 3. Create the Lead Receiver
@@ -28,7 +30,7 @@ app.post('/api/analyze-lead', async (req, res) => {
             response_format: { type: "json_object" }
         });
 
-        const aiResult = JSON.parse(response.choices[0].message.content);
+        const aiResult = JSON.parse(response.choices.message.content);
 
         // Build Lead Document
         const newLead = {
@@ -42,6 +44,17 @@ app.post('/api/analyze-lead', async (req, res) => {
 
         // Save to Database
         const savedLead = await db.insert(newLead);
+
+        // 🚨 NEW: If it's a Hot Lead, instantly text the client's cell phone!
+        if (aiResult.type === "Hot Lead") {
+            await client.messages.create({
+                body: `🚨 HOT LEAD DETECTED!\n\n👤 Name: ${name}\n📞 Phone: ${phone}\n\n📝 Summary: ${aiResult.summary}`,
+                from: process.env.TWILIO_PHONE_NUMBER,
+                to: process.env.CLIENT_PHONE_NUMBER
+            });
+            console.log("SMS Notification Sent successfully!");
+        }
+
         res.json({ success: true, ...savedLead });
 
     } catch (error) {
@@ -49,7 +62,7 @@ app.post('/api/analyze-lead', async (req, res) => {
     }
 });
 
-// 4. Route to fetch all saved leads from database
+// 4. Route to fetch all saved leads
 app.get('/api/leads', async (req, res) => {
     try {
         const rows = await db.find({}).sort({ createdAt: -1 });

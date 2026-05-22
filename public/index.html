@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Lead Dashboard</title>
+    <style>
+        body {
+            margin: 0;
+            background: #111827;
+            color: white;
+            font-family: Arial, sans-serif;
+            padding: 40px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            box-sizing: border-box;
+        }
+        .container {
+            width: 100%;
+            max-width: 500px;
+            background: #1f2937;
+            padding: 30px;
+            border-radius: 16px;
+            box-shadow: 0 0 30px rgba(0,0,0,0.3);
+            margin-bottom: 40px;
+        }
+        h2, h3 { margin-top: 0; }
+        .input-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-size: 14px; }
+        input, textarea {
+            width: 100%; padding: 10px; background: #374151;
+            border: none; border-radius: 8px; color: white; box-sizing: border-box;
+        }
+        button {
+            width: 100%; padding: 12px; background: #2563eb;
+            color: white; border: none; border-radius: 8px;
+            cursor: pointer; font-weight: bold;
+        }
+        button:hover { background: #1d4ed8; }
+        .dashboard {
+            width: 100%; max-width: 900px; background: #1f2937;
+            padding: 25px; border-radius: 16px; box-shadow: 0 0 30px rgba(0,0,0,0.3);
+        }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #374151; }
+        th { background: #374151; }
+        .badge {
+            padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold;
+        }
+        .Hot-Lead { background: #ef4444; color: white; }
+        .Warm-Lead { background: #f59e0b; color: white; }
+        .Cold-Lead { background: #6b7280; color: white; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Submit a New Lead</h2>
+    <form id="leadForm">
+        <div class="input-group">
+            <label>Name</label>
+            <input type="text" id="name" required>
+        </div>
+        <div class="input-group">
+            <label>Phone</label>
+            <input type="text" id="phone" required>
+        </div>
+        <div class="input-group">
+            <label>Email</label>
+            <input type="email" id="email" required>
+        </div>
+        <div class="input-group">
+            <label>Service Needed</label>
+            <textarea id="service" rows="3" required></textarea>
+        </div>
+        <button type="submit">Analyze Lead</button>
+    </form>
+</div>
+
+<div class="dashboard">
+    <h3>Client Lead Dashboard</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Service</th>
+                <th>Score</th>
+                <th>Type</th>
+                <th>Summary</th>
+            </tr>
+        </thead>
+        <tbody id="leadTableBody">
+            <!-- Saved leads will appear here automatically -->
+        </tbody>
+    </table>
+</div>
+
+<script>
+    // Load existing leads when page opens
+    async function loadLeads() {
+        const response = await fetch('/api/leads');
+        const leads = await response.json();
+        const tbody = document.getElementById('leadTableBody');
+        tbody.innerHTML = '';
+        
+        leads.forEach(lead => {
+            const row = `<tr>
+                <td><b>${lead.name}</b><br><small>${lead.phone}</small></td>
+                <td>${lead.service}</td>
+                <td>${lead.leadScore}/100</td>
+                <td><span class="badge ${lead.type.replace(' ', '-')}">${lead.type}</span></td>
+                <td>${lead.summary}</td>
+            </tr>`;
+            tbody.insertAdjacentHTML('beforeend', row);
+        });
+    }
+
+    // Handle Form Submit
+    document.getElementById('leadForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const data = {
+            name: document.getElementById('name').value,
+            phone: document.getElementById('phone').value,
+            email: document.getElementById('email').value,
+            service: document.getElementById('service').value
+        };
+
+        await fetch('/api/analyze-lead', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+
+        document.getElementById('leadForm').reset();
+        loadLeads(); // Refresh dashboard list instantly
+    });
+
+    loadLeads();
+</script>
+
+</body>
+</html>

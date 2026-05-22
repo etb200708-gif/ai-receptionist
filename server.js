@@ -1,7 +1,7 @@
 const express = require('express');
 const dotenv = require('dotenv');
 const { OpenAI } = require('openai');
-const sqlite3 = require('sqlite3').verbose();
+const Datastore = require('nedb-promises');
 
 dotenv.config();
 const app = express();
@@ -11,16 +11,8 @@ app.use(express.static('public'));
 // 1. Connect to OpenAI
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-// 2. Setup Your Free Database
-const db = new sqlite3.Database('./leads.db', (err) => {
-    if (!err) {
-        db.run(`CREATE TABLE IF NOT EXISTS leads (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT, phone TEXT, email TEXT, service TEXT,
-            leadScore INTEGER, spamScore INTEGER, type TEXT, summary TEXT
-        )`);
-    }
-});
+// 2. Setup Your Free Cloud-Friendly Database
+const db = Datastore.create({ filename: './leads.db', autoload: true });
 
 // 3. Create the Lead Receiver
 app.post('/api/analyze-lead', async (req, res) => {
@@ -38,23 +30,33 @@ app.post('/api/analyze-lead', async (req, res) => {
 
         const aiResult = JSON.parse(response.choices[0].message.content);
 
+        // Build Lead Document
+        const newLead = {
+            name, phone, email, service,
+            leadScore: aiResult.leadScore,
+            spamScore: aiResult.spamScore,
+            type: aiResult.type,
+            summary: aiResult.summary,
+            createdAt: new Date()
+        };
+
         // Save to Database
-        const query = `INSERT INTO leads (name, phone, email, service, leadScore, spamScore, type, summary) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
-        db.run(query, [name, phone, email, service, aiResult.leadScore, aiResult.spamScore, aiResult.type, aiResult.summary], function(err) {
-            if (err) return res.status(500).json({ error: err.message });
-            res.json({ success: true, ...aiResult });
-        });
+        const savedLead = await db.insert(newLead);
+        res.json({ success: true, ...savedLead });
 
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
 });
 
-app.listen(process.env.PORT || 3000, () => console.log('Your website backend is running!'));
 // 4. Route to fetch all saved leads from database
-app.get('/api/leads', (req, res) => {
-    db.all(`SELECT * FROM leads ORDER BY id DESC`, [], (err, rows) => {
-        if (err) return res.status(500).json({ error: err.message });
+app.get('/api/leads', async (req, res) => {
+    try {
+        const rows = await db.find({}).sort({ createdAt: -1 });
         res.json(rows);
-    });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
+
+app.listen(process.env.PORT || 3000, () => console.log('Your website backend is running!'));

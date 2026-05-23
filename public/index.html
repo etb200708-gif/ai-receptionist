@@ -3,51 +3,27 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Lead Dashboard</title>
+    <title>Contact Us</title>
     <style>
-        body {
-            margin: 0; background: #111827; color: white;
-            font-family: Arial, sans-serif; padding: 40px;
-            display: flex; flex-direction: column; align-items: center;
-            min-height: 100vh; box-sizing: border-box;
-        }
-        .container {
-            width: 100%; max-width: 500px; background: #1f2937;
-            padding: 30px; border-radius: 16px;
-            box-shadow: 0 0 30px rgba(0,0,0,0.3); margin-bottom: 40px;
-        }
-        h2, h3 { margin-top: 0; }
+        body { margin: 0; background: #111827; color: white; font-family: Arial, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+        .container { width: 100%; max-width: 500px; background: #1f2937; padding: 30px; border-radius: 16px; box-shadow: 0 0 30px rgba(0,0,0,0.3); }
+        h2 { margin-top: 0; }
         .input-group { margin-bottom: 15px; }
         label { display: block; margin-bottom: 5px; font-size: 14px; }
-        input, textarea {
-            width: 100%; padding: 10px; background: #374151;
-            border: none; border-radius: 8px; color: white; box-sizing: border-box;
-        }
-        button {
-            width: 100%; padding: 12px; background: #2563eb;
-            color: white; border: none; border-radius: 8px;
-            cursor: pointer; font-weight: bold;
-        }
+        input, textarea { width: 100%; padding: 10px; background: #374151; border: none; border-radius: 8px; color: white; box-sizing: border-box; }
+        button { width: 100%; padding: 12px; background: #2563eb; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; }
         button:hover { background: #1d4ed8; }
-        button:disabled { background: #4b5563; cursor: not-allowed; }
-        .dashboard {
-            width: 100%; max-width: 900px; background: #1f2937;
-            padding: 25px; border-radius: 16px; box-shadow: 0 0 30px rgba(0,0,0,0.3);
-        }
-        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #374151; }
-        th { background: #374151; }
-        .badge { padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; }
-        .Hot-Lead { background: #ef4444; color: white; }
-        .Warm-Lead { background: #f59e0b; color: white; }
-        .Cold-Lead { background: #6b7280; color: white; }
+        button:disabled { background: #4b5563; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>Submit a New Lead</h2>
+    <h2>Submit Your Request</h2>
     <form id="leadForm">
+        <!-- 🌟 HIDDEN FIELD: This tells the AI which client should get this lead! -->
+        <input type="hidden" id="clientId" value="client_roofing_pro">
+
         <div class="input-group">
             <label>Name</label>
             <input type="text" id="name" required>
@@ -61,62 +37,22 @@
             <input type="email" id="email" required>
         </div>
         <div class="input-group">
-            <label>Service Needed</label>
+            <label>How can we help you?</label>
             <textarea id="service" rows="3" required></textarea>
         </div>
-        <button type="submit" id="submitBtn">Analyze Lead</button>
+        <button type="submit" id="submitBtn">Submit Request</button>
     </form>
 </div>
 
-<div class="dashboard">
-    <h3>Client Lead Dashboard</h3>
-    <table>
-        <thead>
-            <tr>
-                <th>Name</th>
-                <th>Service</th>
-                <th>Score</th>
-                <th>Type</th>
-                <th>Summary</th>
-            </tr>
-        </thead>
-        <tbody id="leadTableBody"></tbody>
-    </table>
-</div>
-
 <script>
-    async function loadLeads() {
-        try {
-            const response = await fetch('/api/leads');
-            const leads = await response.json();
-            const tbody = document.getElementById('leadTableBody');
-            tbody.innerHTML = '';
-            
-            if (!Array.isArray(leads)) return;
-
-            leads.forEach(lead => {
-                const cleanType = lead.type ? lead.type.replace(' ', '-') : 'Cold-Lead';
-                const row = `<tr>
-                    <td><b>${lead.name || ''}</b><br><small>${lead.phone || ''}</small></td>
-                    <td>${lead.service || ''}</td>
-                    <td>${lead.leadScore || 0}/100</td>
-                    <td><span class="badge ${cleanType}">${lead.type || 'Cold Lead'}</span></td>
-                    <td>${lead.summary || ''}</td>
-                </tr>`;
-                tbody.insertAdjacentHTML('beforeend', row);
-            });
-        } catch (err) {
-            console.error("Error loading leads:", err);
-        }
-    }
-
     document.getElementById('leadForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         const btn = document.getElementById('submitBtn');
-        btn.textContent = 'Analyzing with AI... Please Wait';
+        btn.textContent = 'Sending...';
         btn.disabled = true;
         
         const data = {
+            clientId: document.getElementById('clientId').value, // Tracks the client
             name: document.getElementById('name').value,
             phone: document.getElementById('phone').value,
             email: document.getElementById('email').value,
@@ -129,23 +65,13 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data)
             });
-            
             if (res.ok) {
+                alert("Thank you! Your request has been sent.");
                 document.getElementById('leadForm').reset();
-                await loadLeads();
-            } else {
-                alert("Server error processing lead.");
-            }
-        } catch (err) {
-            alert("Network error. Check connection.");
-        } finally {
-            btn.textContent = 'Analyze Lead';
-            btn.disabled = false;
-        }
+            } else { alert("Error submitting request."); }
+        } catch (err) { alert("Network error."); }
+        finally { btn.textContent = 'Submit Request'; btn.disabled = false; }
     });
-
-    loadLeads();
 </script>
-
 </body>
 </html>

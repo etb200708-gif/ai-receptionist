@@ -2,37 +2,38 @@ const express = require('express');
 const dotenv = require('dotenv');
 const { OpenAI } = require('openai');
 const Datastore = require('nedb-promises');
+const path = require('path');
 
 dotenv.config();
 const app = express();
 app.use(express.json());
 app.use(express.static('public'));
 
-// 1. Connect to OpenAI
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
-// 2. Setup Database
 const db = Datastore.create({ filename: './leads.db', autoload: true });
 
-// 3. Create the Lead Receiver
+// Route to serve the dashboard interface smoothly
+app.get('/dashboard', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
+});
+
+// 1. Lead Receiver Endpoint (Saves with client identification tag)
 app.post('/api/analyze-lead', async (req, res) => {
-    const { name, phone, email, service } = req.body;
+    const { clientId, name, phone, email, service } = req.body;
     
     const prompt = `Analyze this business lead. Provide a JSON response with keys: leadScore (0-100), spamScore (0-100), type ("Hot Lead", "Warm Lead", "Cold Lead"), and summary. Lead info: Name: ${name}, Service: ${service}.`;
 
     try {
-        // Send to AI
         const response = await openai.chat.completions.create({
             model: "gpt-4o-mini",
             messages: [{ role: "user", content: prompt }],
             response_format: { type: "json_object" }
         });
 
-        // FIX: Added the correct [0] array index to read the response safely
-        const aiResult = JSON.parse(response.choices[0].message.content);
+        const aiResult = JSON.parse(response.choices.message.content);
 
-        // Build Lead Document
         const newLead = {
+            clientId: clientId || 'unknown', // 🌟 Stamped with Client Identifier
             name, phone, email, service,
             leadScore: aiResult.leadScore,
             spamScore: aiResult.spamScore,
@@ -41,24 +42,23 @@ app.post('/api/analyze-lead', async (req, res) => {
             createdAt: new Date()
         };
 
-        // Save to Database
         const savedLead = await db.insert(newLead);
         res.json({ success: true, ...savedLead });
 
     } catch (error) {
-        console.error("Server API Error:", error.message);
         res.status(500).json({ error: error.message });
     }
 });
 
-// 4. Route to fetch all saved leads
-app.get('/api/leads', async (req, res) => {
+// 2. Multi-Tenant Route: Fetches data rows matching ONLY the requested Client ID
+app.get('/api/leads/:clientId', async (req, res) => {
     try {
-        const rows = await db.find({}).sort({ createdAt: -1 });
+        const { clientId } = req.params;
+        const rows = await db.find({ clientId: clientId }).sort({ createdAt: -1 });
         res.json(rows);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
 
-app.listen(process.env.PORT || 3000, () => console.log('Your website backend is running!'));
+app.listen(process.env.PORT || 3000, () => console.log('Your multi-tenant backend is running!'));

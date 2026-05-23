@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Contact Us</title>
     <style>
-        body { margin: 0; background: #111827; color: white; font-family: Arial, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+        body { margin: 0; background: #111827; color: white; font-family: Arial, sans-serif; display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: 100vh; }
         .container { width: 100%; max-width: 500px; background: #1f2937; padding: 30px; border-radius: 16px; box-shadow: 0 0 30px rgba(0,0,0,0.3); }
         h2 { margin-top: 0; }
         .input-group { margin-bottom: 15px; }
@@ -21,7 +21,7 @@
 <div class="container">
     <h2>Submit Your Request</h2>
     <form id="leadForm">
-        <!-- 🌟 HIDDEN FIELD: This tells the AI which client should get this lead! -->
+        
         <input type="hidden" id="clientId" value="client_roofing_pro">
 
         <div class="input-group">
@@ -43,19 +43,20 @@
         <button type="submit" id="submitBtn">Submit Request</button>
     </form>
 </div>
+
 <div style="text-align: center; margin-top: 20px;">
-    <a href="/dashboard?id=client_roofing_pro" style="color: #4b5563; text-decoration: none; font-size: 12px;">🔒 Client Dashboard Login</a>
+    <a href="/dashboard?id=client_roofing_pro" style="color: #4b5563; text-decoration: none; font-size: 14px; font-weight: bold;">🔒 Client Dashboard Login</a>
 </div>
 
 <script>
     document.getElementById('leadForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         const btn = document.getElementById('submitBtn');
-        btn.textContent = 'Sending...';
+        btn.textContent = 'Sending to AI...';
         btn.disabled = true;
         
         const data = {
-            clientId: document.getElementById('clientId').value, // Tracks the client
+            clientId: document.getElementById('clientId').value,
             name: document.getElementById('name').value,
             phone: document.getElementById('phone').value,
             email: document.getElementById('email').value,
@@ -68,12 +69,21 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data)
             });
+            
             if (res.ok) {
-                alert("Thank you! Your request has been sent.");
+                alert("Thank you! Your request has been sent successfully.");
                 document.getElementById('leadForm').reset();
-            } else { alert("Error submitting request."); }
-        } catch (err) { alert("Network error."); }
-        finally { btn.textContent = 'Submit Request'; btn.disabled = false; }
+            } else {
+                // 🌟 READ THE REAL SERVER ERROR DIRECTLY
+                const errorData = await res.json();
+                alert("Server Error: " + (errorData.error || "Processing failed"));
+            }
+        } catch (err) { 
+            alert("Network error. Could not reach server."); 
+        } finally { 
+            btn.textContent = 'Submit Request'; 
+            btn.disabled = false; 
+        }
     });
 </script>
 </body>

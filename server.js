@@ -28,7 +28,8 @@ app.post('/api/analyze-lead', async (req, res) => {
             response_format: { type: "json_object" }
         });
 
-        const aiResult = JSON.parse(response.choices.message.content);
+        // FIX: Added the correct [0] array index to read the response safely
+        const aiResult = JSON.parse(response.choices[0].message.content);
 
         // Build Lead Document
         const newLead = {

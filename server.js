@@ -30,7 +30,7 @@ app.post('/api/analyze-lead', async (req, res) => {
             response_format: { type: "json_object" }
         });
 
-        const aiResult = JSON.parse(response.choices.message.content);
+        const aiResult = JSON.parse(response.choices[0].message.content);
 
         const newLead = {
             clientId: clientId || 'unknown', // 🌟 Stamped with Client Identifier
